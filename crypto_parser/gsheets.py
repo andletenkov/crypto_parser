@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import gspread
 
-SPREAD_SHEETS_SERVICE_ACCOUNT = gspread.service_account()
+SPREAD_SHEETS_SERVICE_ACCOUNT = gspread.service_account(
+    filename=Path(__file__).parent.parent / "service_account.json"
+)
 
 
 def write_spread_data(data: list[dict]):
