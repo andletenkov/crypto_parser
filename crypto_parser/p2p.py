@@ -8,12 +8,12 @@ from requests.adapters import HTTPAdapter
 
 from crypto_parser.constant import (
     ALFA,
-    ASSETS,
     POCHTA,
     QIWI,
     RAIFFEISEN,
     ROSBANK,
     TINKOFF,
+    USDT,
     YANDEX,
 )
 
@@ -198,4 +198,5 @@ def best_price(data: P2PData, asset: str, pay_type: Union[str, None]) -> str:
 
 
 if __name__ == "__main__":
-    print(get_data("garantex", ASSETS, "RUB", "BUY", pay_types=[None]))
+    data = get_data("Binance", [USDT], "RUB", "BUY", pay_types=[ROSBANK], amount=5000)
+    print(data)

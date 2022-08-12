@@ -4,9 +4,12 @@ from typing import Union
 import schedule
 
 from crypto_parser import gsheets, p2p
-from crypto_parser.constant import ASSETS, PAY_TYPES
+from crypto_parser.constant import *
 from crypto_parser.p2p import TradeType, UnknownExchange
 from crypto_parser.utils import current_datetime
+
+PAY_TYPES = (TINKOFF, ROSBANK, QIWI, YANDEX, ALFA, POCHTA, RAIFFEISEN)
+ASSETS = (USDT, BTC, ETH)
 
 
 def update_table_for_exchange(
@@ -16,8 +19,6 @@ def update_table_for_exchange(
     pay_types: list[Union[str, None]],
     amount: int = 5000,
 ):
-    start = time.time()
-
     try:
         range_updated_at, range_table = {
             "binance": {"buy": ["B3:B4", "C6:I8"], "sell": ["B12:B13", "C15:I17"]},
@@ -35,26 +36,26 @@ def update_table_for_exchange(
             exchange, assets, "RUB", trade_type, pay_types=pay_types, amount=amount
         )
 
+        values = [
+            [p2p.best_price(data, asset, pt) for pt in pay_types] for asset in assets
+        ]
+        current_dt = current_datetime()
         to_write = [
             {
                 "range": range_updated_at,
-                "values": [["Updated at"], [current_datetime()]],
+                "values": [["Updated at"], [current_dt]],
             },
             {
                 "range": range_table,
-                "values": [
-                    [p2p.best_price(data, asset, pt) for pt in pay_types]
-                    for asset in assets
-                ],
+                "values": values,
             },
         ]
         print(
-            f"{exchange}/{trade_type} table updated:",
+            f"{current_dt} — {exchange}/{trade_type} table updated:",
             gsheets.write_spread_data(to_write),
         )
-        print("Duration:", round(time.time() - start, 2), "sec")
     except Exception as e:
-        print("Error:", e.args[0])
+        print("Error:", str(e))
     print()
 
 
@@ -79,7 +80,7 @@ schedule.every(30).minutes.do(
 
 
 if __name__ == "__main__":
-    print("Crypto parser started...")
+    print(current_datetime(), "— Crypto parser started...")
     while True:
         schedule.run_pending()
         time.sleep(1)
