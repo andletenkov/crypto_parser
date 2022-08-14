@@ -34,11 +34,11 @@ def update_table_for_exchange(
 ):
     try:
         range_updated_at, range_table = {
-            "binance": {"buy": ["B3:B4", "C6:I8"], "sell": ["B12:B13", "C15:I17"]},
-            "bybit": {"buy": ["K3:K4", "L6:R8"], "sell": ["K12:K13", "L15:R17"]},
+            "binance": {"buy": ["B2:B3", "C5:I7"], "sell": ["B9:B10", "C12:I14"]},
+            "bybit": {"buy": ["K2:K3", "L5:R7"], "sell": ["K9:K10", "L12:R14"]},
             "garantex": {
-                "buy": ["AU3:AU4", "AV6:AV8"],
-                "sell": ["AU12:AU13", "AV15:AV17"],
+                "buy": ["AU2:AU3", "AV5:AV7"],
+                "sell": ["AU9:AU10", "AV12:AV14"],
             },
         }[exchange.lower()][trade_type.lower()]
     except KeyError:
