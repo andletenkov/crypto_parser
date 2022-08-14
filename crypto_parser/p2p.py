@@ -29,7 +29,7 @@ P2PData = dict[tuple[str, str], list[P2PAdv]]
 
 HTTP_SESSION = requests.Session()
 HTTP_SESSION.mount(
-    "https://", HTTPAdapter(pool_connections=3, pool_maxsize=10, max_retries=3)
+    "https://", HTTPAdapter(pool_connections=3, pool_maxsize=20, max_retries=3)
 )
 
 

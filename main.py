@@ -1,3 +1,5 @@
+import logging
+import sys
 import time
 from typing import Union
 
@@ -10,6 +12,17 @@ from crypto_parser.utils import current_datetime
 
 PAY_TYPES = (TINKOFF, ROSBANK, QIWI, YANDEX, ALFA, POCHTA, RAIFFEISEN)
 ASSETS = (USDT, BTC, ETH)
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(formatter)
+
+logger.addHandler(handler)
 
 
 def update_table_for_exchange(
@@ -50,37 +63,35 @@ def update_table_for_exchange(
                 "values": values,
             },
         ]
-        print(
-            f"{current_dt} — {exchange}/{trade_type} table updated:",
-            gsheets.write_spread_data(to_write),
+        logger.info(
+            f"{exchange}/{trade_type} table updated: {gsheets.write_spread_data(to_write)}"
         )
     except Exception as e:
-        print("Error:", str(e))
-    print()
+        logger.error("Error:", str(e))
 
 
-schedule.every(30).minutes.do(
+schedule.every(5).minutes.do(
     update_table_for_exchange, "Binance", ASSETS, "BUY", PAY_TYPES
 )
-schedule.every(30).minutes.do(
+schedule.every(5).minutes.do(
     update_table_for_exchange, "Binance", ASSETS, "SELL", PAY_TYPES
 )
-schedule.every(30).minutes.do(
+schedule.every(5).minutes.do(
     update_table_for_exchange, "BYBIT", ASSETS, "BUY", PAY_TYPES
 )
-schedule.every(30).minutes.do(
+schedule.every(5).minutes.do(
     update_table_for_exchange, "BYBIT", ASSETS, "SELL", PAY_TYPES
 )
-schedule.every(30).minutes.do(
+schedule.every(5).minutes.do(
     update_table_for_exchange, "Garantex", ASSETS, "BUY", [None]
 )
-schedule.every(30).minutes.do(
+schedule.every(5).minutes.do(
     update_table_for_exchange, "Garantex", ASSETS, "SELL", [None]
 )
 
 
 if __name__ == "__main__":
-    print(current_datetime(), "— Crypto parser started...")
+    logger.info("Crypto parser started")
     while True:
         schedule.run_pending()
         time.sleep(1)
