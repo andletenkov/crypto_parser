@@ -13,7 +13,6 @@ from crypto_parser.constant import (
     RAIFFEISEN,
     ROSBANK,
     TINKOFF,
-    USDT,
     YANDEX,
 )
 
@@ -25,6 +24,8 @@ class UnknownExchange(Exception):
 TradeType = Literal["BUY", "SELL"]
 P2PAdv = namedtuple("P2PAdv", ("nick", "price", "quantity"))
 P2PData = dict[tuple[str, str], list[P2PAdv]]
+Symbol = float
+MarketData = dict[tuple[str, str], Symbol]
 
 
 HTTP_SESSION = requests.Session()
@@ -33,7 +34,7 @@ HTTP_SESSION.mount(
 )
 
 
-def fetch_binance(
+def fetch_binance_p2p(
     asset: str,
     fiat: str,
     trade_type: TradeType,
@@ -55,9 +56,7 @@ def fetch_binance(
             "filterType": "all",
         },
     )
-    assert (
-        resp.status_code == 200
-    ), f"Error fetching Binance P2P. Status code: {resp.status_code}"
+    assert resp.status_code == 200, f"Error fetching Binance P2P data. {resp.text}"
 
     raw_data = resp.json()["data"]
 
@@ -72,7 +71,7 @@ def fetch_binance(
     return prices
 
 
-def fetch_bybit(
+def fetch_bybit_p2p(
     asset: str,
     fiat: str,
     trade_type: TradeType,
@@ -112,9 +111,7 @@ def fetch_bybit(
         },
     )
 
-    assert (
-        resp.status_code == 200
-    ), f"Error fetching BYBIT P2P. Status code: {resp.status_code}"
+    assert resp.status_code == 200, f"Error fetching BYBIT P2P data. {resp.text}"
 
     raw_data = resp.json()["result"]["items"]
 
@@ -128,14 +125,14 @@ def fetch_bybit(
     ]
 
 
-def fetch_garantex(
+def fetch_garantex_p2p(
     asset: str,
     fiat: str,
     trade_type: TradeType,
     amount: int = 0,
     *args,
     **kwargs,
-):
+) -> list[P2PAdv]:
     market = asset.lower() + fiat.lower()
     resp = requests.get(
         "https://garantex.io/api/v2/depth",
@@ -143,9 +140,7 @@ def fetch_garantex(
             "market": market,
         },
     )
-    assert (
-        resp.status_code == 200
-    ), f"Error fetching Garantex market. Status code: {resp.status_code}"
+    assert resp.status_code == 200, f"Error fetching Garantex market data. {resp.text}"
 
     raw_data = resp.json()[{"buy": "asks", "sell": "bids"}[trade_type.lower()]]
 
@@ -156,7 +151,51 @@ def fetch_garantex(
     ]
 
 
-def get_data(
+def fetch_market_data_binance(symbol: str) -> Symbol:
+    resp = HTTP_SESSION.get(
+        "https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol.upper()}
+    )
+    if resp.status_code != 200:
+        return "error"
+
+    order = resp.json()
+    return float(order["price"])
+
+
+def fetch_market_data_bybit(symbol: str) -> Symbol:
+    resp = HTTP_SESSION.get(
+        "https://api-testnet.bybit.com/v2/public/orderBook/L2",
+        params={"symbol": symbol.upper()},
+    )
+
+    if resp.status_code != 200:
+        return "error"
+
+    book = resp.json().get("result")
+
+    if not book:
+        return "error"
+
+    order = [order for order in book if order["side"] == "Sell"][0]
+    return float(order["price"])
+
+
+def fetch_market_data_garantex(symbol: str) -> Symbol:
+    resp = requests.get(
+        "https://garantex.io/api/v2/depth",
+        params={
+            "market": symbol.lower(),
+        },
+    )
+    if resp.status_code != 200:
+        return "error"
+
+    order = resp.json()["asks"][0]
+
+    return float(order["price"])
+
+
+def get_data_p2p(
     exchange: str,
     assets: list[str],
     fiat: str,
@@ -167,9 +206,9 @@ def get_data(
 ) -> P2PData:
     try:
         fetcher = {
-            "binance": fetch_binance,
-            "bybit": fetch_bybit,
-            "garantex": fetch_garantex,
+            "binance": fetch_binance_p2p,
+            "bybit": fetch_bybit_p2p,
+            "garantex": fetch_garantex_p2p,
         }[exchange.lower()]
     except KeyError:
         raise UnknownExchange(exchange) from None
@@ -187,8 +226,8 @@ def get_data(
             ): (asset, pay_type)
             for asset, pay_type in itertools.product(assets, pay_types)
         }
-        for future in as_completed(future_to_asset_pay_type):
-            results[future_to_asset_pay_type[future]] = future.result()
+    for future in as_completed(future_to_asset_pay_type):
+        results[future_to_asset_pay_type[future]] = future.result()
     return results
 
 
@@ -197,6 +236,23 @@ def best_price(data: P2PData, asset: str, pay_type: Union[str, None]) -> str:
     return adv_list[0].price if adv_list else 1_000_000_000
 
 
+def get_market_data(exchanges: list[str], symbols: list[str]) -> MarketData:
+    fetchers = {
+        "binance": fetch_market_data_binance,
+        "bybit": fetch_market_data_bybit,
+        "garantex": fetch_market_data_garantex,
+    }
+    results = {}
+    with ThreadPoolExecutor() as tpe:
+        future_to_exchange_symbol = {
+            tpe.submit(fetchers[exchange.lower()], symbol): (exchange, symbol)
+            for exchange, symbol in itertools.product(exchanges, symbols)
+        }
+    for future in as_completed(future_to_exchange_symbol):
+        results[future_to_exchange_symbol[future]] = future.result()
+    return results
+
+
 if __name__ == "__main__":
-    data = get_data("Binance", [USDT], "RUB", "BUY", pay_types=[ROSBANK], amount=5000)
-    print(data)
+    md = get_market_data(["binance", "bybit", "garantex"], ["BTCUSDT", "ETHUSDT"])
+    print(md)

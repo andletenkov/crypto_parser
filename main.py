@@ -1,17 +1,19 @@
 import logging
 import sys
 import time
-from typing import Union
 
 import schedule
 
-from crypto_parser import gsheets, p2p
+from crypto_parser import gsheets
 from crypto_parser.constant import *
-from crypto_parser.p2p import TradeType, UnknownExchange
+from crypto_parser.crypto import (
+    TradeType,
+    UnknownExchange,
+    best_price,
+    get_data_p2p,
+    get_market_data,
+)
 from crypto_parser.utils import current_datetime
-
-PAY_TYPES = (TINKOFF, ROSBANK, QIWI, YANDEX, ALFA, POCHTA, RAIFFEISEN)
-ASSETS = (USDT, BTC, ETH)
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -25,13 +27,18 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
-def update_table_for_exchange(
+def update_p2p_data_table_for_exchange(
     exchange: str,
-    assets: list[str],
     trade_type: TradeType,
-    pay_types: list[Union[str, None]],
     amount: int = 5000,
 ):
+    pay_types = (
+        (TINKOFF, ROSBANK, QIWI, YANDEX, ALFA, POCHTA, RAIFFEISEN)
+        if exchange.lower() != "garantex"
+        else [None]
+    )
+    assets = (USDT, BTC, ETH)
+
     try:
         range_updated_at, range_table = {
             "binance": {"buy": ["B2:B3", "C5:I7"], "sell": ["B9:B10", "C12:I14"]},
@@ -45,13 +52,11 @@ def update_table_for_exchange(
         raise UnknownExchange(f"{exchange}/{trade_type}") from None
 
     try:
-        data = p2p.get_data(
+        data = get_data_p2p(
             exchange, assets, "RUB", trade_type, pay_types=pay_types, amount=amount
         )
 
-        values = [
-            [p2p.best_price(data, asset, pt) for pt in pay_types] for asset in assets
-        ]
+        values = [[best_price(data, asset, pt) for pt in pay_types] for asset in assets]
         current_dt = current_datetime()
         to_write = [
             {
@@ -64,34 +69,71 @@ def update_table_for_exchange(
             },
         ]
         logger.info(
-            f"{exchange}/{trade_type} table updated: {gsheets.write_spread_data(to_write)}"
+            f"{exchange}/{trade_type} P2P table updated: {gsheets.write_spread_data(to_write)}"
         )
     except Exception as e:
-        logger.error("Error:", str(e))
+        logger.error(f"Error: {str(e)}")
 
 
-schedule.every(5).minutes.do(
-    update_table_for_exchange, "Binance", ASSETS, "BUY", PAY_TYPES
-)
-schedule.every(5).minutes.do(
-    update_table_for_exchange, "Binance", ASSETS, "SELL", PAY_TYPES
-)
-schedule.every(5).minutes.do(
-    update_table_for_exchange, "BYBIT", ASSETS, "BUY", PAY_TYPES
-)
-schedule.every(5).minutes.do(
-    update_table_for_exchange, "BYBIT", ASSETS, "SELL", PAY_TYPES
-)
-schedule.every(5).minutes.do(
-    update_table_for_exchange, "Garantex", ASSETS, "BUY", [None]
-)
-schedule.every(5).minutes.do(
-    update_table_for_exchange, "Garantex", ASSETS, "SELL", [None]
-)
+def update_market_data_tables():
+    ranges = {
+        "binance": {
+            ETHUSDT: "C16",
+            BTCUSDT: "C17",
+            ETHBTC: "E16",
+            USDTETH: "E17",
+            USDTBTC: "G16",
+            BTCETH: "G17",
+        },
+        "bybit": {
+            ETHUSDT: "L16",
+            BTCUSDT: "L17",
+            ETHBTC: "N16",
+            USDTETH: "N17",
+            USDTBTC: "P16",
+            BTCETH: "P17",
+        },
+        "garantex": {
+            ETHUSDT: "AV16",
+            BTCUSDT: "AV17",
+            ETHBTC: "AX16",
+            USDTETH: "AX17",
+            USDTBTC: "AZ16",
+            BTCETH: "AZ17",
+        },
+    }
+
+    exchanges = ("binance", "bybit", "garantex")
+    symbols = (BTCUSDT, ETHUSDT, ETHBTC, USDTETH, USDTBTC, BTCETH)
+
+    try:
+        data = get_market_data(exchanges, symbols)
+
+        to_write = [
+            {"range": ranges[e.lower()][s.upper()], "values": [[data[(e, s)]]]}
+            for e in exchanges
+            for s in symbols
+        ]
+
+        logger.info(
+            f"Market data tables updated: {gsheets.write_spread_data(to_write)}"
+        )
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
 
 
 if __name__ == "__main__":
     logger.info("Crypto parser started")
+
+    schedule.every(5).minutes.do(update_p2p_data_table_for_exchange, "Binance", "BUY")
+    schedule.every(5).minutes.do(update_p2p_data_table_for_exchange, "Binance", "SELL")
+    schedule.every(5).minutes.do(update_p2p_data_table_for_exchange, "BYBIT", "BUY")
+    schedule.every(5).minutes.do(update_p2p_data_table_for_exchange, "BYBIT", "SELL")
+    schedule.every(5).minutes.do(update_p2p_data_table_for_exchange, "Garantex", "BUY")
+    schedule.every(5).minutes.do(update_p2p_data_table_for_exchange, "Garantex", "SELL")
+    schedule.every(5).minutes.do(update_market_data_tables)
+    logger.info(f"Jobs scheduled: {schedule.get_jobs()}")
+
     while True:
         schedule.run_pending()
         time.sleep(1)
