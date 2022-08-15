@@ -80,39 +80,27 @@ def update_market_data_tables():
         "binance": {
             ETHUSDT: "C16",
             BTCUSDT: "C17",
-            ETHBTC: "E16",
-            USDTETH: "E17",
-            USDTBTC: "G16",
-            BTCETH: "G17",
+            ETHBTC: "C18",
         },
         "bybit": {
             ETHUSDT: "L16",
             BTCUSDT: "L17",
-            ETHBTC: "N16",
-            USDTETH: "N17",
-            USDTBTC: "P16",
-            BTCETH: "P17",
         },
         "garantex": {
             ETHUSDT: "AV16",
             BTCUSDT: "AV17",
-            ETHBTC: "AX16",
-            USDTETH: "AX17",
-            USDTBTC: "AZ16",
-            BTCETH: "AZ17",
+            ETHBTC: "AV18",
         },
     }
-
-    exchanges = ("binance", "bybit", "garantex")
-    symbols = (BTCUSDT, ETHUSDT, ETHBTC, USDTETH, USDTBTC, BTCETH)
-
     try:
-        data = get_market_data(exchanges, symbols)
+        data = get_market_data(
+            ("binance", "bybit", "garantex"), (BTCUSDT, ETHUSDT, ETHBTC)
+        )
 
         to_write = [
-            {"range": ranges[e.lower()][s.upper()], "values": [[data[(e, s)]]]}
-            for e in exchanges
-            for s in symbols
+            {"range": ranges[e][s], "values": [[data[(e, s)]]]}
+            for e in ranges
+            for s in ranges[e]
         ]
 
         logger.info(

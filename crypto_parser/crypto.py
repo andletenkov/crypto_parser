@@ -155,8 +155,7 @@ def fetch_market_data_binance(symbol: str) -> Symbol:
     resp = HTTP_SESSION.get(
         "https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol.upper()}
     )
-    if resp.status_code != 200:
-        return "error"
+    assert resp.status_code == 200, f"Error fetching Binance market data. {resp.text}"
 
     order = resp.json()
     return float(order["price"])
@@ -168,13 +167,12 @@ def fetch_market_data_bybit(symbol: str) -> Symbol:
         params={"symbol": symbol.upper()},
     )
 
-    if resp.status_code != 200:
-        return "error"
+    assert resp.status_code == 200, f"Error fetching BYBIT market data. {resp.text}"
 
     book = resp.json().get("result")
 
     if not book:
-        return "error"
+        return 0.0
 
     order = [order for order in book if order["side"] == "Sell"][0]
     return float(order["price"])
@@ -187,8 +185,7 @@ def fetch_market_data_garantex(symbol: str) -> Symbol:
             "market": symbol.lower(),
         },
     )
-    if resp.status_code != 200:
-        return "error"
+    assert resp.status_code == 200, f"Error fetching Garantex market data. {resp.text}"
 
     order = resp.json()["asks"][0]
 
