@@ -1,5 +1,5 @@
 # Pay types
-TINKOFF = "Tinkoff"
+TINKOFF = "TinkoffNew"
 RAIFFEISEN = "RaiffeisenBankRussia"
 QIWI = "QIWI"
 POCHTA = "PostBankRussia"
