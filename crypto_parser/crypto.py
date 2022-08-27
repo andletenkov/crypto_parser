@@ -122,6 +122,7 @@ def fetch_bybit_p2p(
             float(row["quantity"]),
         )
         for row in raw_data
+        if row["isOnline"]
     ]
 
 
@@ -147,7 +148,7 @@ def fetch_garantex_p2p(
     return [
         P2PAdv(None, float(row["price"]), float(row["volume"]))
         for row in raw_data
-        if float(row["amount"]) >= amount and row["isOnline"]
+        if float(row["amount"]) >= amount
     ]
 
 
