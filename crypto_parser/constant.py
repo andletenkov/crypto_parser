@@ -3,7 +3,7 @@ TINKOFF = "TinkoffNew"
 RAIFFEISEN = "RaiffeisenBankRussia"
 QIWI = "QIWI"
 POCHTA = "PostBankRussia"
-ROSBANK = "RosBank"
+ROSBANK = "RosBankNew"
 ALFA = "ABank"
 YANDEX = "YandexMoneyNew"
 
